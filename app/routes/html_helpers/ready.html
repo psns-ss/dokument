@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <title>Documents ready</title>
+    <style>
+      body{font-family:Arial,Helvetica,sans-serif;margin:40px;}
+      .doc-link{margin:.5em 0}
+      a{color:#1a73e8;text-decoration:none}
+      a:hover{text-decoration:underline}
+      h1{margin-bottom:30px;}
+      .actions{margin-top:40px;padding-top:20px;border-top:1px solid #ddd;}
+      .actions a{margin-right:15px;text-decoration:none;padding:10px 20px;border-radius:5px;display:inline-block;}
+      .btn-primary{background-color:#4CAF50;color:white;}
+      .btn-primary:hover{background-color:#45a049;}
+      .btn-secondary{background-color:#6c757d;color:white;}
+      .btn-secondary:hover{background-color:#5a6268;}
+      .message{color:#666;margin-bottom:20px;}
+      .flash{padding:8px 12px;border-radius:5px;margin-bottom:16px;}
+      .flash-warning{background-color:#fff3cd;color:#856404;border:1px solid #ffeaa7;}
+      .flash-error{background-color:#f8d7da;color:#721c24;border:1px solid #f5c6cb;}
+    </style>
+  </head>
+  <body>
+    <h1>Документы сгенерированы</h1>
+    <p class="message">Вы можете редактировать документы в OnlyOffice.</p>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+    {% for category, message in messages %}
+    <div class="flash flash-{{ category }}">{{ message }}</div>
+    {% endfor %}
+    {% endwith %}
+
+    {% for doc in doc_links %}
+    <div class="doc-link">
+      <a href="{{ doc.editor }}" target="_blank">Документ {{ doc.index }}: {{ doc.name }}</a>
+    </div>
+    {% endfor %}
+
+    <p style="color:#999;font-size:0.9em;">Если документы не открываются автоматически, разрешите всплывающие окна и нажмите на ссылки.</p>
+
+    <div class="actions">
+      <a href="/download" class="btn-primary">Скачать все (ZIP)</a>
+      <a href="/init" class="btn-secondary">Вернуться к форме</a>
+      <a href="/reset" class="btn-secondary">Завершить работу</a>
+    </div>
+
+    <script>
+      document.querySelectorAll("a[target=\"_blank\"]").forEach(a => window.open(a.href, "_blank"));
+    </script>
+  </body>
+</html>

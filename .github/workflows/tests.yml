@@ -1,0 +1,35 @@
+name: tests
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  pytest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.14"          
+          cache: pip
+          cache-dependency-path: |
+            requirements.txt
+            requirements-test.txt
+
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt -r requirements-test.txt
+
+      # No --e2e: the container-backed tests self-skip when localhost:5555 is
+      # unreachable (tests/conftest.py registers the flag).
+      # DOCUMENT_STORE: /document_store is a Docker volume path; the runner user
+      # cannot create it at the filesystem root. Also exercises the env override.
+      - name: Test
+        env:
+          DOCUMENT_STORE: ${{ runner.temp }}/document_store
+        run: |
+          mkdir -p "$DOCUMENT_STORE"
+          python -m pytest

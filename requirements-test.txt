@@ -1,0 +1,6 @@
+# Testing dependencies
+pytest>=9.1.1
+pytest-flask
+pytest-cov
+freezegun
+requests  # For E2E tests against running container

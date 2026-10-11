@@ -1,0 +1,29 @@
+# VCS & tooling
+.git/
+.gitignore
+.gitattributes
+.claude/
+
+# Runtime data (bind-mounted at runtime; never belongs in the image)
+data/
+document_store/
+onlyoffice_data/
+onlyoffice_logs/
+uploads/
+inflection_data/
+app/uploads/
+app/inflection_data/
+session_*/
+
+# Python artifacts
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+htmlcov/
+.coverage
+venv/
+.env/
+
+# Misc
+*.log

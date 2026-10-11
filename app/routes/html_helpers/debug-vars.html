@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Отладка переменных</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin: 24px auto; max-width: 1100px; color: #1a1a1a; }
+        h1 { margin-bottom: 4px; }
+        h2 { margin-top: 32px; font-size: 1.2em; color: #555; }
+        .subtitle { color: #888; margin-top: 0; margin-bottom: 20px; }
+        .nav-links { margin-bottom: 16px; }
+        .nav-links a { margin-right: 16px; }
+        table { border-collapse: collapse; margin-bottom: 16px; }
+        th, td { border: 1px solid #ddd; padding: 6px 10px; text-align: center; }
+        th { background: #f5f5f5; font-weight: 600; position: sticky; top: 0; }
+        /* template columns — narrow: only checkboxes there */
+        th.tc, td.tc { padding: 6px 4px; font-size: 0.85em; }
+        /* sortable column headers — click cycles descr order → asc (↑) → desc (↓) */
+        th.sortable { cursor: pointer; user-select: none; }
+        th.sortable:hover { background: #e8eef7; }
+        td.varname { text-align: left; font-family: monospace; position: relative; }
+        td.types { text-align: left; color: #666; font-size: 0.9em; white-space: nowrap; }
+        .yes { background: #d4edda; }
+        .no { background: #f8d7da; }
+        .empty { color: #999; font-style: italic; }
+        .stats { display: flex; gap: 24px; margin-bottom: 20px; }
+        .stat { background: #f9f9f9; padding: 12px 20px; border-radius: 6px; border: 1px solid #eee; }
+        .stat strong { font-size: 1.4em; }
+        /* stat plaques — quick filters for the table */
+        button.stat { font: inherit; color: inherit; text-align: left; cursor: pointer; }
+        button.stat:hover { background: #f0f5fb; border-color: #b9cfe8; }
+        /* cold glow on the table for ~0.5s when the filter changes */
+        @keyframes tableGlow {
+            0%   { box-shadow: 0 0 0 0 rgba(74, 118, 168, 0); }
+            30%  { box-shadow: 0 0 22px 6px rgba(74, 118, 168, 0.5); }
+            100% { box-shadow: 0 0 0 0 rgba(74, 118, 168, 0); }
+        }
+        table.glow { animation: tableGlow 0.55s ease-out; }
+        .pack-bar { margin: 16px 0; }
+        .pack-bar select { padding: 4px 8px; }
+        .flash-warning { margin: 12px 0; padding: 10px 14px; background: #fff3cd; border: 1px solid #ffeeba; color: #856404; border-radius: 4px; }
+        /* tooltip on the variable name: pops up to the RIGHT (without covering
+           the row below), with a show delay — doesn't flicker when sweeping rows */
+        .var-tip { position: absolute; left: 100%; top: 50%; z-index: 10;
+                   transform: translateY(-50%) translateX(-4px);
+                   margin-left: 12px;
+                   background: #f7faff; border: 1px solid #d5e2f2; border-left: 3px solid #4a76a8;
+                   border-radius: 6px; box-shadow: 0 4px 14px rgba(0,0,0,0.12);
+                   padding: 8px 12px; white-space: nowrap; text-align: left; font-size: 0.85em;
+                   opacity: 0; visibility: hidden; pointer-events: none;
+                   transition: opacity 0.15s ease, transform 0.15s ease, visibility 0.15s; }
+        td.varname:hover .var-tip { opacity: 1; visibility: visible;
+                   transform: translateY(-50%) translateX(0); transition-delay: 0.4s; }
+        .var-tip::before { content: ''; position: absolute; left: -5px; top: 50%;
+                   width: 9px; height: 9px; margin-top: -5px; background: #f7faff;
+                   border-left: 1px solid #d5e2f2; border-bottom: 1px solid #d5e2f2;
+                   transform: rotate(45deg); }
+        .var-tip .tip-desc { color: #555; font-style: italic; }
+        .var-tip .tip-none { color: #aaa; font-style: italic; }
+        .var-tip .tip-ok { color: #1e7e34; }
+        .var-tip .tip-miss { color: #c0392b; }
+        .warn { background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 6px; padding: 10px 14px; margin-bottom: 16px; }
+        .warn code { font-family: monospace; }
+        /* wiring graph: variable → module → hooks */
+        .wiring { background: #f9f9f9; border: 1px solid #eee; border-radius: 6px; padding: 12px 16px; margin-bottom: 16px; font-family: monospace; font-size: 0.9em; }
+        .wiring .wrow { display: flex; align-items: baseline; gap: 8px; padding: 3px 0; flex-wrap: wrap; }
+        .wiring .wvar { font-weight: 600; min-width: 170px; }
+        .wiring .arrow { color: #999; }
+        .wiring .wmod { background: #e7f1ff; border: 1px solid #c5d9f7; border-radius: 4px; padding: 0 6px; }
+        .wiring .whook { color: #155724; }
+        .wiring .whook.missing { color: #721c24; }
+    </style>
+</head>
+<body>
+    <div class="nav-links">
+        <a href="/init">Главная</a>
+        <a href="/debug-vars">Переменные</a>
+        <a href="/debug/inflections">Словарь склонений</a>
+    </div>
+
+    <h1>Отладка переменных</h1>
+    <p class="subtitle">набор: <b>{{ active_pack }}</b>{% if pack_description %} &mdash; {{ pack_description }}{% endif %}
+       &middot; шаблонов: {{ stats.templates }} &middot; переменных в descr.docx: {{ stats.expected }}</p>
+
+    <form class="pack-bar" method="get" action="/debug-vars">
+        <label for="pack">Набор шаблонов:</label>
+        <select id="pack" name="pack" onchange="this.form.submit()">
+            {% for p in packs %}
+            <option value="{{ p.identifier }}"
+                {% if p.identifier == active_pack %}selected{% endif %}
+                {% if p.is_disabled %}disabled{% endif %}>
+                {{ p.identifier }}{% if p.description %} &mdash; {{ p.description }}{% endif %}{% if p.is_disabled %} ({{ p.error }}){% endif %}
+            </option>
+            {% endfor %}
+        </select>
+    </form>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+    <div class="flash-block">
+        {% for category, message in messages %}
+        <div class="flash-{{ category }}">{{ message }}</div>
+        {% endfor %}
+    </div>
+    {% endif %}
+    {% endwith %}
+
+    <div class="stats">
+        <button type="button" class="stat" data-filter="all" title="Показать все переменные">
+            <strong>{{ stats.expected }}</strong><br>Ожидаемые
+        </button>
+        <button type="button" class="stat" data-filter="found" title="Только найденные в шаблонах">
+            <strong>{{ stats.found }}</strong><br>В шаблонах
+        </button>
+        {% if stats.unexpected %}
+        <button type="button" class="stat" data-filter="unexpected" title="К таблице неожиданных переменных">
+            <strong>{{ stats.unexpected }}</strong><br>Неожиданные
+        </button>
+        {% endif %}
+        <button type="button" class="stat" data-filter="hooks" title="Только переменные с найденными хуками">
+            <strong>{{ stats.hooks_wired }}/{{ stats.hooks_total }}</strong><br>Хуки
+        </button>
+    </div>
+
+    {% if hook_errors %}
+    <div class="warn">
+        <b>Ошибки импорта плагинов:</b><br>
+        {% for name, err in hook_errors.items() %}<code>{{ name }}</code> &mdash; {{ err }}<br>{% endfor %}
+    </div>
+    {% endif %}
+
+    {% for cat, stems in dropped.items() if stems %}
+    <div class="warn">
+        <b>Загрузчик не загрузит ({{ cat }}):</b>
+        {% for s in stems %}<code>{{ s }}.py</code> (нет <code>{{ cat }}_{{ s }}()</code>){% if not loop.last %}; {% endif %}{% endfor %}
+        &mdash; хуки из этих модулей не будут вызываться.
+    </div>
+    {% endfor %}
+
+    {% if not templates %}
+    <p class="empty">Шаблоны в этом наборе не найдены.</p>
+    {% endif %}
+
+    {% if var_rows %}
+    <h2>Переменные (descr.docx) &times; шаблоны</h2>
+    <table id="main-table">
+        <thead>
+            <tr>
+                <th>Переменная</th>
+                <th>Тип</th>
+                {% for t in templates %}<th class="tc" title="{{ t.name }}">{{ t.name }}</th>{% endfor %}
+            </tr>
+        </thead>
+        <tbody>
+            {% for row in var_rows %}
+            <tr data-found="{{ '1' if row.found_any else '0' }}"
+                data-hooks="{{ '1' if row.hooks_any else '0' }}">
+                <td class="varname">
+                    {{ row.name }}
+                    {% if row.description or row.hooks %}
+                    <span class="var-tip">
+                        {# both slots are always present: the empty one — as a muted placeholder #}
+                        {% if row.description %}<span class="tip-desc">{{ row.description }}</span>{% else %}<span class="tip-none">описание не задано</span>{% endif %}<br>
+                        {% if row.hooks %}
+                        {% for h in row.hooks %}
+                        {{ h.fn }}() &mdash; {% if h.module %}<span class="tip-ok">{{ h.module }}.py</span>{% else %}<span class="tip-miss">не найдено</span>{% endif %}<br>
+                        {% endfor %}
+                        {% else %}<span class="tip-none">хуки не ожидаются</span>{% endif %}
+                    </span>
+                    {% endif %}
+                </td>
+                <td class="types">{{ row.types|join(', ') }}</td>
+                {% for t in templates %}
+                    {% if t.error %}
+                        <td class="tc empty" title="{{ t.error }}">ошибка</td>
+                    {% elif row.name in t.found %}
+                        <td class="tc yes">&#10003;</td>
+                    {% else %}
+                        <td class="tc no">&#10007;</td>
+                    {% endif %}
+                {% endfor %}
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% endif %}
+
+    <h2>Неожиданные переменные (найдены в шаблонах, но не описаны в descr.docx)</h2>
+    {% if unexpected_vars %}
+    <table id="unexpected-table">
+        <thead>
+            <tr>
+                <th>Переменная</th>
+                {% for t in templates %}<th class="tc" title="{{ t.name }}">{{ t.name }}</th>{% endfor %}
+            </tr>
+        </thead>
+        <tbody>
+            {% for var in unexpected_vars %}
+            <tr>
+                <td class="varname">{{ var }}</td>
+                {% for t in templates %}
+                    {% if var in t.found %}
+                        <td class="tc yes">&#10003;</td>
+                    {% else %}
+                        <td class="tc">&mdash;</td>
+                    {% endif %}
+                {% endfor %}
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p class="empty">Нет &mdash; все найденные переменные описаны в descr.docx.</p>
+    {% endif %}
+
+    {% set wired_rows = var_rows|selectattr('hooks')|list %}
+    <h2>Связки: переменная &rarr; модуль &rarr; хуки</h2>
+    {% if wired_rows %}
+    <div class="wiring">
+        {% for row in wired_rows %}
+        <div class="wrow">
+            <span class="wvar">{{ row.name }}</span>
+            <span class="arrow">&rarr;</span>
+            {% for w in row.wiring %}
+            <span class="wmod">{{ w.module }}.py</span>
+            <span class="arrow">&rarr;</span>
+            <span class="whook">{% for fn in w.hooks %}{{ fn }}(){% if not loop.last %} &middot; {% endif %}{% endfor %}</span>
+            {% if not loop.last or row.missing_hooks %} <span class="arrow">&middot;</span>{% endif %}
+            {% endfor %}
+            {% for fn in row.missing_hooks %}
+            <span class="whook missing">{{ fn }}() &mdash; не найдено</span>
+            {% if not loop.last %} <span class="arrow">&middot;</span>{% endif %}
+            {% endfor %}
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <p class="empty">Хуки не ожидаются ни для одной переменной.</p>
+    {% endif %}
+
+    <script>
+    // Stat plaques — quick filters: all/found/hooks hide rows of
+    // the main table, unexpected scrolls to its own; the affected table
+    // is highlighted with a cold glow for ~0.5s.
+    (function () {
+        function glow(el) {
+            el.classList.remove('glow');
+            void el.offsetWidth; // restart the animation
+            el.classList.add('glow');
+        }
+        var main = document.getElementById('main-table');
+        document.querySelectorAll('.stat[data-filter]').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                var f = btn.dataset.filter;
+                if (f === 'unexpected') {
+                    var t = document.getElementById('unexpected-table');
+                    if (t) {
+                        t.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        glow(t);
+                    }
+                    return;
+                }
+                if (!main) return;
+                main.querySelectorAll('tbody tr').forEach(function (tr) {
+                    tr.hidden = (f === 'found' && tr.dataset.found !== '1')
+                        || (f === 'hooks' && tr.dataset.hooks !== '1');
+                });
+                glow(main);
+            });
+        });
+    })();
+
+    // Column sorting — click a header to cycle the row order:
+    // descr.docx order (default, no arrow) → ascending (↑) → descending (↓) →
+    // back to descr order. One column at a time; the arrow marks the active
+    // one. Same mechanism on the main matrix and the unexpected-vars table.
+    (function () {
+        function makeSortable(table) {
+            var tbody = table.querySelector('tbody');
+            if (!tbody) return;
+            var headers = Array.prototype.slice.call(table.querySelectorAll('thead th'));
+            var rows = Array.prototype.slice.call(tbody.querySelectorAll('tr'));
+            // Precompute the visible sort key per cell (strip the hover tooltip
+            // so a var sorts on its name alone) and remember the original
+            // (descr) order for the "no arrow" state.
+            var keys = rows.map(function (row, i) {
+                row.dataset.origIndex = i;
+                return Array.prototype.map.call(row.children, function (td) {
+                    var clone = td.cloneNode(true);
+                    clone.querySelectorAll('.var-tip').forEach(function (el) { el.remove(); });
+                    return clone.textContent.replace(/\s+/g, ' ').trim();
+                });
+            });
+            var state = {}; // col index -> 'asc' | 'desc' (only one at a time)
+
+            function render() {
+                var activeCol = null, dir = 1;
+                for (var c in state) { activeCol = +c; dir = state[c] === 'asc' ? 1 : -1; }
+                rows.sort(function (a, b) {
+                    var ia = +a.dataset.origIndex, ib = +b.dataset.origIndex;
+                    if (activeCol === null) return ia - ib;
+                    var cmp = keys[ia][activeCol].localeCompare(
+                        keys[ib][activeCol], 'ru', { numeric: true, sensitivity: 'base' }
+                    ) * dir;
+                    return cmp !== 0 ? cmp : ia - ib; // ties keep descr order
+                });
+                rows.forEach(function (row) { tbody.appendChild(row); });
+                headers.forEach(function (th, i) {
+                    th.textContent = th.dataset.origText +
+                        ((i === activeCol) ? (dir === 1 ? ' ↑' : ' ↓') : '');
+                });
+            }
+
+            headers.forEach(function (th, col) {
+                th.dataset.origText = th.textContent;
+                th.classList.add('sortable');
+                th.addEventListener('click', function () {
+                    var current = state[col];
+                    state = {};
+                    if (current === undefined) state[col] = 'asc';
+                    else if (current === 'asc') state[col] = 'desc';
+                    // 'desc' → back to descr order (state stays empty)
+                    render();
+                });
+            });
+        }
+        var main = document.getElementById('main-table');
+        if (main) makeSortable(main);
+        var unexp = document.getElementById('unexpected-table');
+        if (unexp) makeSortable(unexp);
+    })();
+    </script>
+</body>
+</html>

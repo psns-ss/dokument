@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Редактирование склонения</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .form-container { max-width: 800px; margin: 0 auto; }
+        h1 { margin-bottom: 4px; }
+        .subtitle { color: #888; margin-top: 0; margin-bottom: 20px; }
+        .nav-links { margin-bottom: 16px; }
+        .nav-links a { margin-right: 16px; }
+        .flash { padding: 8px 12px; border-radius: 5px; margin-bottom: 16px; }
+        .flash-success { background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .flash-error { background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        .info-box { background-color: #fff3cd; padding: 10px; border-radius: 5px; margin-bottom: 20px; font-size: 13px; border: 1px solid #ffeaa7; }
+        .form-group { margin-bottom: 10px; }
+        .form-group label { display: block; font-weight: bold; margin-bottom: 4px; }
+        .form-group input[type="text"] { width: 100%; box-sizing: border-box; padding: 6px 8px; border: 1px solid #ccc; border-radius: 3px; font-size: 14px; }
+        .form-group input[type="text"]:focus { border-color: #4CAF50; outline: none; }
+        .case-group { margin-bottom: 16px; padding: 10px; border: 1px solid #ddd; border-radius: 5px; }
+        .case-header { font-weight: bold; margin-bottom: 8px; color: #333; }
+        .option-row { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+        .option-row input[type="radio"] { width: 18px; height: 18px; flex-shrink: 0; cursor: pointer; }
+        .option-row input[type="text"] { flex: 1; padding: 5px 8px; border: 1px solid #ccc; border-radius: 3px; font-size: 14px; box-sizing: border-box; }
+        .option-row input[type="text"]:focus { border-color: #4CAF50; outline: none; }
+        .option-label { font-size: 12px; color: #888; min-width: 80px; flex-shrink: 0; }
+        .button-row { margin: 20px 0; padding-top: 15px; border-top: 1px solid #ddd; }
+        .button-row button, .button-row a { padding: 8px 15px; border: none; cursor: pointer; font-size: 14px; border-radius: 3px; text-decoration: none; color: #fff; display: inline-block; }
+        .btn-save { background-color: #4CAF50; }
+        .btn-save:hover { background-color: #3a9d42; }
+        .btn-secondary { background-color: #6c757d; }
+        .btn-secondary:hover { background-color: #5a6268; }
+    </style>
+</head>
+<body>
+<div class="form-container">
+    <div class="nav-links">
+        <a href="/init">Главная</a>
+        <a href="/debug-vars">Переменные</a>
+        <a href="/debug/inflections">Словарь склонений</a>
+        {% if conflict %}
+        <a href="/debug/inflections/conflicts">Конфликты</a>
+        {% endif %}
+    </div>
+
+    {% if missing_existing %}
+    <h1>Конфликт #{{ conflict.id }}</h1>
+    <p class="subtitle">Оригинальное слово отсутствует</p>
+    {% elif is_new %}
+    <h1>Новое слово</h1>
+    <p class="subtitle">Пустые поля будут пропущены</p>
+    {% else %}
+    <h1>Редактирование: {{ word.nominative or 'ID ' ~ word.word_id }}</h1>
+    <p class="subtitle">word_id = {{ word.word_id }}</p>
+    {% endif %}
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+    {% for category, message in messages %}
+    <div class="flash flash-{{ category }}">{{ message }}</div>
+    {% endfor %}
+    {% endwith %}
+
+    {% if missing_existing %}
+    <!-- The existing word was deleted after the conflict was logged: recover by
+         saving the triggering word as new, or discard the conflict. -->
+    <div class="info-box">
+        Слово, с которым возник конфликт (word_id = {{ conflict.existing_word_id }}), уже
+        удалено из словаря. Отклоните конфликт, либо сохраните слово, которое его вызвало,
+        как новое.
+    </div>
+    <div class="button-row">
+        <a href="/debug/inflections/new?from_conflict={{ conflict.id }}" class="btn-save">Сохранить как новое слово</a>
+        <form method="POST" action="/debug/inflections/conflicts/{{ conflict.id }}/dismiss" style="display:inline">
+            <button type="submit" class="btn-secondary">Отклонить конфликт</button>
+        </form>
+    </div>
+    {% else %}
+
+    {% if from_conflict %}
+    <div class="info-box">
+        Заполнено из конфликта #{{ from_conflict }} — оригинальное слово отсутствует.
+        Сохраните слово как новое (конфликт будет отклонён) или отмените.
+    </div>
+    {% endif %}
+
+    {% if conflict %}
+    <div class="info-box">
+        <strong>Конфликт #{{ conflict.id }}:</strong>
+        "{{ conflict.existing_value }}" vs "{{ conflict.new_value }}" — падеж <span style="font-family:monospace">{{ conflict.case_code }}</span>
+    </div>
+    {% endif %}
+
+    <form method="POST" action="{% if is_new %}/debug/inflections/new{% else %}/debug/inflections/{{ word.word_id }}/edit{% endif %}">
+        {% if conflict %}
+        <input type="hidden" name="_merge" value="{{ conflict.id }}">
+        {% endif %}
+        {% if from_conflict %}
+        <!-- Carries the conflict id through the pre-populated new-word save so
+             the POST can dismiss it (the recovery link opens this form via
+             ?from_conflict=<id>; without it the save would leave the conflict). -->
+        <input type="hidden" name="_from_conflict" value="{{ from_conflict }}">
+        {% endif %}
+
+        {% for case in case_rows %}
+        <div class="case-group">
+            <div class="case-header">{{ case_names.get(case.code, case.code) }} падеж</div>
+
+            {% if case.kind == 'simple' %}
+            <!-- Single value — no conflict -->
+            <div class="option-row">
+                <input type="hidden" name="case" value="{{ case.code }}">
+                <input type="text" name="value" value="{{ case.value }}">
+            </div>
+            {% else %}
+            <!-- Conflict — two options; the radio picks which one, and each option's
+                 value has its own name (value_<code>_<idx>) so the server can read
+                 the chosen value without any JS. -->
+            {% for opt in case.options %}
+            <div class="option-row">
+                <input type="radio"
+                       name="case_{{ case.code }}"
+                       id="case_{{ case.code }}_{{ opt.idx }}"
+                       value="{{ opt.idx }}"
+                       {% if opt.idx == 0 %}checked{% endif %}>
+                <span class="option-label">{{ opt.label }}</span>
+                <input type="text"
+                       name="value_{{ case.code }}_{{ opt.idx }}"
+                       value="{{ opt.value }}"
+                       data-case="{{ case.code }}"
+                       data-idx="{{ opt.idx }}">
+            </div>
+            {% endfor %}
+            {% endif %}
+        </div>
+        {% endfor %}
+
+        <div class="button-row">
+            <button type="submit" class="btn-save">Сохранить</button>
+            <a href="/debug/inflections" class="btn-secondary">Отмена</a>
+        </div>
+    </form>
+    {% endif %}
+</div>
+
+{% if conflict %}
+<script>
+(function () {
+    // Convenience only: focusing a conflict option's field auto-selects its radio.
+    // The choice itself is read server-side (case_<code> radio + value_<code>_<idx>),
+    // so this is not required for correctness.
+    document.querySelectorAll('input[data-case][data-idx]').forEach(function (input) {
+        input.addEventListener('focus', function () {
+            var radio = document.getElementById('case_' + this.dataset.case + '_' + this.dataset.idx);
+            if (radio) radio.checked = true;
+        });
+    });
+})();
+</script>
+{% endif %}
+</body>
+</html>

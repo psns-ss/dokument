@@ -1,0 +1,17 @@
+# Sample YAML configuration for testing matcher.py
+
+university_1:
+  short: "МГУ"
+  full: "Московский государственный университет"
+
+university_2:
+  short: "СПбГУ"
+  full: "Санкт-Петербургский государственный университет"
+
+company_1:
+  short: "Яндекс"
+  full: "ООО Яндекс"
+
+person_1:
+  short: "Иванов"
+  full: "Иванов Иван Иванович"

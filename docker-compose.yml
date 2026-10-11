@@ -1,0 +1,59 @@
+services:
+  webserver:
+    build: .
+    expose:
+      - "5000"
+    volumes:
+      - "./app:/app"
+      - "./templates:/app/templates"
+      - "./logic:/app/templates/logic"
+      - "./inflection_data:/app/inflection_data"
+      - "./data:/document_store"  # Add persistent storage
+    environment:
+      - FLASK_DEBUG=0  # debug off in production (replaces the FLASK_ENV deprecated in Flask 2.2)
+      - DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=1
+      - FLASK_LOG_LEVEL=DEBUG  # debug-level logs (E2E log-content tests need it)
+      - COMPUTE_ON_ERROR=lenient  # lenient = sentinel in doc, strict = abort generation
+      - DATA_TTL_DAYS=14  # /reset sweeps data/ entries older than this (days)
+    depends_on:
+      onlyoffice:
+        condition: service_healthy
+    networks:
+      - app_network
+
+  onlyoffice:
+    image: onlyoffice/documentserver
+    expose:
+      - "80"  # Example OnlyOffice port
+    environment:
+      - JWT_ENABLED=false
+      - ALLOW_PRIVATE_IP_ADDRESS=true
+      - ALLOW_META_IP_ADDRESS=true
+      - ONLYOFFICE_HTTPS_HSTS_ENABLED=false
+    volumes:
+      - "./onlyoffice_logs:/var/log/onlyoffice:rw,Z"
+      - "./data:/var/lib/onlyoffice/documentserver/App_Data/cache/files/data:rw,Z"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/healthcheck"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - app_network
+
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "5555:80"
+    volumes:
+      - ./data:/usr/share/nginx/documents:rw,Z  # Mount documents here for Nginx
+      - "./nginx:/etc/nginx:rw,Z"
+    depends_on:
+      - webserver
+      - onlyoffice
+    networks:
+      - app_network
+
+networks:
+  app_network:
+    driver: bridge

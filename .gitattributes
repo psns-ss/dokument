@@ -1,0 +1,4 @@
+# Normalize line endings: LF in the repo and on checkout everywhere
+# (repo is developed on Windows with core.autocrlf=true and consumed on
+# Linux in Docker — without this, EOL churn on every cross-platform touch).
+* text=auto eol=lf

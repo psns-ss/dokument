@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Форма для генерации документов</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .form-container { max-width: 800px; margin: 0 auto; }
+        .table-container { margin-bottom: 20px; border: 1px solid #ddd; padding: 10px; border-radius: 5px; }
+        table { border-collapse: collapse; width: 100%; margin-bottom: 10px; }
+        td, th { border: 1px solid #ddd; padding: 8px; }
+        .form-group { margin-bottom: 10px; }
+        .tables-info { background-color: #e0f7fa; padding: 10px; border-radius: 5px; margin: 20px 0; }
+        .table-preview { margin-bottom: 15px; }
+        button { padding: 8px 15px; background-color: #4CAF50; color: white; border: none; cursor: pointer; }
+        .button-row { margin: 20px 0; padding-top: 15px; border-top: 1px solid #ddd; }
+        .button-row button, .button-row a { margin-right: 10px; }
+        .button-row a { text-decoration: none; color: white; padding: 8px 15px; border-radius: 3px; }
+        .btn-secondary { background-color: #6c757d; }
+        .btn-secondary:hover { background-color: #5a6268; text-decoration: none; }
+        .inflection-row { display: flex; gap: 8px; margin-top: 4px; }
+        .inflection-input { flex: 1; min-width: 0; }
+        .inflection-input input { width: 100%; box-sizing: border-box; padding: 5px; }
+        .inflection-input label { font-size: 0.8em; color: #666; display: block; margin-bottom: 2px; }
+        .flash { padding: 8px 12px; border-radius: 5px; margin-bottom: 16px; }
+        .flash-success { background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .flash-error { background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+    </style>
+</head>
+<body>
+<div class="form-container">
+{% with messages = get_flashed_messages(with_categories=true) %}
+{% for category, message in messages %}
+<div class="flash flash-{{ category }}">{{ message }}</div>
+{% endfor %}
+{% endwith %}
+<form action="/init" method="post" enctype="multipart/form-data">
+{% if dynamic_ui %}
+<div class="dynamic-ui-section" style="margin: 20px 0; padding: 15px; background-color: #fff3cd; border: 1px solid #ffeaa7; border-radius: 5px;">
+    {{ dynamic_ui|safe }}
+</div>
+{% endif %}
+
+<!-- Form fields for variables -->
+{% for var_name, var_meta in variable_desc.items() %}
+{% set form_types = var_meta.get('types', [var_meta.get('type', 'text')]) %}
+{% set options = var_meta.get('options') or {} %}
+{% set cases = options.get('text') %}
+{# Render a native field only if the var has a native-renderable type
+   (text/enum/bool/cases). A pure file/form var renders via its init_* hook
+   (dynamic UI) — a native input here would collide with it. #}
+{% set native = 'text' in form_types or 'enum' in form_types or 'bool' in form_types or cases %}
+{% if var_meta.get('show_in_form', False) and native %}
+{% set field_id = 'field_' + var_name %}
+{% set label = var_meta.description %}
+{% set value = session_data.get(var_name) or '' %}
+<div class="form-group" style="margin-bottom: 10px;">
+    <label for="{{ field_id }}">{{ label }}:</label>
+    {% if cases %}
+    <!-- Inflection row: one input per case -->
+    {% set var_dict = (session_data.get(var_name) or {}) %}
+    <div class="inflection-row">
+    {% for case in cases %}
+        <div class="inflection-input">
+            <label>в {{ case_names.get(case, case) }} падеже</label>
+            <input type="text"
+                   name="{{ var_name }}__{{ case }}"
+                   value="{{ var_dict.get(case, '') }}"
+                   class="inflection-field"
+                   data-var="{{ var_name }}"
+                   data-case="{{ case }}"
+                   placeholder="в {{ case_names.get(case, case) }} падеже"
+                   style="padding: 5px;">
+        </div>
+    {% endfor %}
+    </div>
+    {% elif 'enum' in form_types and options.get('enum') %}
+    <select id="{{ field_id }}" name="{{ var_name }}" required style="padding: 5px;">
+        {% for option in options.get('enum') %}
+        <option value="{{ option }}" {% if option == value %}selected{% endif %}>{{ option }}</option>
+        {% endfor %}
+    </select>
+    {% elif 'bool' in form_types %}
+    <label style="vertical-align: middle;">
+        <input type="checkbox" id="{{ field_id }}" name="{{ var_name }}"
+               value="true" {% if value == 'true' %}checked{% endif %}
+               style="vertical-align: middle;">
+        {{ "включено" if value == 'true' else "выключено" }}
+    </label>
+    <input type="hidden" name="{{ var_name }}" value="false">
+    {% else %}
+    <input type="text" id="{{ field_id }}" name="{{ var_name }}" value="{{ value }}" required style="padding: 5px;">
+    {% endif %}
+</div>
+{% endif %}
+{% endfor %}
+
+{% if ui_hash %}
+<input type="hidden" name="ui_hash" value="{{ ui_hash }}">
+{% endif %}
+<button type="submit">Продолжить</button>
+
+</form>
+
+<div class="button-row">
+    <a href="{{ url_for('select.select_pack') }}" class="btn-secondary">Сменить набор шаблонов</a>
+</div>
+
+</div>
+
+<script>
+// Inflection blur auto-fill + submit intercept
+(function() {
+    const _pendingLookups = new Set();
+    const _gen = {};                 // per-var generation counter (stale-response guard)
+    let _submitting = false;
+    const LOOKUP_BUDGET_MS = 2000;   // max wait for in-flight lookups before submitting
+
+    document.querySelectorAll('.inflection-field').forEach(input => {
+        input.addEventListener('blur', async () => {
+            if (_submitting) return;
+            const word = input.value.trim();
+            const varName = input.dataset.var;
+            const caseCode = input.dataset.case;
+            if (!word) return;
+
+            const siblings = [...document.querySelectorAll(
+                '.inflection-field[data-var="' + CSS.escape(varName) + '"]'
+            )];
+            const isFirst = siblings[0] === input;
+            const hasEmpty = siblings.some(
+                s => !s.value.trim() && s !== input
+            );
+
+            // Non-source field + all siblings filled → skip (preserves natural tab flow)
+            // Source field OR has empties → clear siblings and refetch
+            if (!isFirst && !hasEmpty) return;
+
+            // Bump this var's generation; a response is stale if a newer lookup
+            // for the same var fired in the meantime (prevents mixed word forms).
+            const gen = (_gen[varName] = (_gen[varName] || 0) + 1);
+
+            const promise = (async () => {
+                try {
+                    const resp = await fetch(
+                        '/inflection/lookup?word=' + encodeURIComponent(word) +
+                        '&field=' + caseCode + '&var=' + varName
+                    );
+                    const data = await resp.json();
+                    if (!data || Object.keys(data).length === 0) return;
+                    if (_gen[varName] !== gen) return;  // stale — superseded by a newer lookup
+
+                    // Clear siblings only on first field (visual feedback)
+                    if (isFirst) {
+                        siblings.forEach(s => { if (s !== input) s.value = ''; });
+                    }
+
+                    // Only fill empty fields — preserves user-typed values
+                    siblings.forEach(sib => {
+                        const sibCase = sib.dataset.case;
+                        if (data[sibCase] && !sib.value.trim()) sib.value = data[sibCase];
+                    });
+                } catch (e) {
+                    console.warn('Inflection lookup failed:', e);
+                }
+            })();
+            _pendingLookups.add(promise);
+            promise.finally(() => _pendingLookups.delete(promise));
+        });
+    });
+
+    // Scope to the main form by action attribute
+    const mainForm = document.querySelector('form[action="/init"]');
+    if (mainForm) {
+        mainForm.addEventListener('submit', async (e) => {
+            if (_submitting) { e.preventDefault(); return; }
+            if (_pendingLookups.size === 0) return;  // nothing to wait for — let it submit
+            _submitting = true;
+            e.preventDefault();
+            try {
+                await Promise.race([
+                    Promise.allSettled(_pendingLookups),
+                    new Promise(r => setTimeout(r, LOOKUP_BUDGET_MS))
+                ]);
+            } finally {
+                _pendingLookups.clear();
+                _submitting = false;  // reset before re-submit so the inner event passes
+            }
+            e.target.requestSubmit();
+        });
+    }
+})();
+</script>
+</body>
+</html>

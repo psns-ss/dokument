@@ -1,0 +1,45 @@
+# Python
+__pycache__/
+*.py[cod]
+*.so
+venv/
+.env/
+
+# Editor / IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+*.code-workspace
+
+# Test & coverage output
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+
+# Runtime data — bind-mounted at run time, never committed. Anchored on purpose:
+# an unanchored `data/` also swallows app/data/, tests/fixtures/data/, and any
+# future `lib/` or `var/` inside the source tree.
+/data/
+document_store/
+onlyoffice_data/
+onlyoffice_logs/
+uploads/
+session_*/
+
+# Inflection SQLite dictionary (lazy-created — the directory stays, its contents
+# don't). `*.db*` covers the -wal / -shm sidecars and any rollback journal.
+/inflection_data/*.db*
+app/inflection_data/*.db*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Claude Code session state
+.claude/

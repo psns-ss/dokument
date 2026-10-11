@@ -1,0 +1,13 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Сессия очищена</title>
+</head>
+<body>
+    <p>Сессия очищена. Перенаправление на <a href="{{ url }}">{{ url }}</a>…</p>
+    <script>
+        setTimeout(function () { window.location.replace('{{ url }}'); }, 1000);
+    </script>
+</body>
+</html>

@@ -1,0 +1,6 @@
+sex_options: ["Мужской", "Женский"]
+appeals:
+  ru:
+    formal:
+      male: "ый"
+      female: "ая"

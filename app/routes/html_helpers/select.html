@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Выберите набор шаблонов</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 40px; }
+        .form-container { max-width: 600px; margin: 0 auto; }
+        h1 { color: #333; }
+        .pack-option { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }
+        .pack-option:hover { background-color: #f5f5f5; }
+        .pack-option.disabled { opacity: 0.6; background-color: #f9f9f9; }
+        .pack-option label { cursor: pointer; display: block; }
+        .pack-option.disabled label { cursor: not-allowed; }
+        .description { color: #666; font-style: italic; margin-left: 10px; }
+        .warning { color: #ff9800; margin-left: 10px; }
+        .error { color: #f44336; }
+        .no-templates { color: #999; font-size: 0.85em; margin-left: 10px; }
+        button { padding: 10px 20px; background-color: #4CAF50; color: white; border: none; cursor: pointer; margin-top: 10px; }
+        button:hover { background-color: #45a049; }
+        .error-message { color: #f44336; padding: 10px; background-color: #ffebee; border-radius: 5px; margin-bottom: 20px; }
+        .flash { padding: 8px 12px; border-radius: 5px; margin-bottom: 16px; }
+        .flash-success { background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .flash-error { background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+    </style>
+</head>
+<body>
+<div class="form-container">
+{% with messages = get_flashed_messages(with_categories=true) %}
+{% for category, message in messages %}
+<div class="flash flash-{{ category }}">{{ message }}</div>
+{% endfor %}
+{% endwith %}
+    <h1>Выберите набор шаблонов</h1>
+
+    {% if error %}
+    <p class="error-message">{{ error }}</p>
+    {% endif %}
+
+    <form action="{{ url_for('select.select_pack') }}" method="post">
+        {% for pack in packs %}
+        <div class="pack-option {% if pack.is_disabled %}disabled{% endif %}">
+            <label>
+                <input type="radio"
+                       name="selected_pack"
+                       value="{{ pack.identifier }}"
+                       {% if loop.first and not pack.is_disabled %}checked{% endif %}
+                       {% if pack.is_disabled %}disabled{% endif %}>
+                <strong>{{ pack.identifier }}</strong>
+
+                {% if pack.template_count == 0 %}
+                <span class="no-templates">Нет template*.docx файлов</span>
+                {% elif pack.template_count == 1 %}
+                <span class="no-templates">{{ pack.template_count }} шаблон</span>
+                {% else %}
+                <span class="no-templates">{{ pack.template_count }} шаблонов</span>
+                {% endif %}
+
+                {% if pack.is_disabled and pack.error %}
+                <span class="error" title="{{ pack.error }}">{{ pack.error }}</span>
+                {% elif pack.description and pack.description != 'No description available' %}
+                <span class="description">{{ pack.description }}</span>
+                {% endif %}
+
+                {% if pack.is_duplicate and not pack.is_disabled %}
+                <span class="warning">Дубликат описания</span>
+                {% endif %}
+            </label>
+        </div>
+        {% endfor %}
+
+        <button type="submit">Продолжить</button>
+    </form>
+</div>
+</body>
+</html>

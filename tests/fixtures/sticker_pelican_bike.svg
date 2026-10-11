@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200" viewBox="0 0 200 200">
+  <!-- Pelican on a bicycle — sticker demo sample / test fixture -->
+  <!-- wheels -->
+  <circle cx="52" cy="152" r="26" fill="none" stroke="#334155" stroke-width="5"/>
+  <circle cx="148" cy="152" r="26" fill="none" stroke="#334155" stroke-width="5"/>
+  <circle cx="52" cy="152" r="3" fill="#334155"/>
+  <circle cx="148" cy="152" r="3" fill="#334155"/>
+  <!-- frame -->
+  <g stroke="#2563EB" stroke-width="5" stroke-linecap="round" fill="none">
+    <path d="M52,152 L96,152 L84,106 Z"/>
+    <path d="M96,152 L130,108 L84,106"/>
+    <path d="M130,108 L148,152"/>
+    <path d="M130,108 L134,96"/>
+    <path d="M134,96 Q140,92 146,96"/>
+    <path d="M84,106 L82,98"/>
+  </g>
+  <ellipse cx="82" cy="96" rx="10" ry="3.5" fill="#334155"/>
+  <circle cx="96" cy="152" r="6" fill="none" stroke="#334155" stroke-width="3"/>
+  <path d="M96,152 L105,160" stroke="#334155" stroke-width="4" stroke-linecap="round"/>
+  <path d="M101,161 L111,161" stroke="#334155" stroke-width="4" stroke-linecap="round"/>
+  <!-- far leg -->
+  <path d="M88,90 Q100,120 106,146" stroke="#334155" stroke-width="12" stroke-linecap="round" fill="none"/>
+  <path d="M88,90 Q100,120 106,146" stroke="#EA8A0A" stroke-width="7" stroke-linecap="round" fill="none"/>
+  <!-- tail -->
+  <path d="M62,84 L44,94 L62,98 Z" fill="#FFF7E0" stroke="#334155" stroke-width="2.5" stroke-linejoin="round"/>
+  <!-- body -->
+  <ellipse cx="82" cy="76" rx="24" ry="19" fill="#FFF7E0" stroke="#334155" stroke-width="2.5"/>
+  <!-- head -->
+  <circle cx="100" cy="52" r="15" fill="#FFF7E0" stroke="#334155" stroke-width="2.5"/>
+  <!-- beak: pouch, then upper -->
+  <path d="M115,59 L167,55 Q144,88 115,59 Z" fill="#FB923C" stroke="#334155" stroke-width="2" stroke-linejoin="round"/>
+  <path d="M113,43 L167,55 L115,59 Z" fill="#F59E0B" stroke="#334155" stroke-width="2" stroke-linejoin="round"/>
+  <circle cx="105" cy="47" r="2.5" fill="#334155"/>
+  <!-- near leg + foot on pedal -->
+  <path d="M80,92 Q88,126 100,152" stroke="#334155" stroke-width="12" stroke-linecap="round" fill="none"/>
+  <path d="M80,92 Q88,126 100,152" stroke="#F59E0B" stroke-width="7" stroke-linecap="round" fill="none"/>
+  <ellipse cx="105" cy="157" rx="8" ry="3.5" fill="#F59E0B" stroke="#334155" stroke-width="2"/>
+  <!-- wing gripping the handlebar -->
+  <path d="M92,80 Q114,86 133,94" stroke="#334155" stroke-width="13" stroke-linecap="round" fill="none"/>
+  <path d="M92,80 Q114,86 133,94" stroke="#FFF7E0" stroke-width="8" stroke-linecap="round" fill="none"/>
+</svg>

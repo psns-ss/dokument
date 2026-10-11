@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200" viewBox="0 0 200 200">
+  <!-- Pelican with a coffee cup — sticker demo sample / test fixture -->
+  <!-- tail -->
+  <path d="M52,108 L32,120 L54,128 Z" fill="#FFF7E0" stroke="#334155" stroke-width="2.5" stroke-linejoin="round"/>
+  <!-- neck (ends tucked under body and head, drawn first) -->
+  <path d="M94,88 C96,66 102,56 112,50 L124,60 C114,66 110,76 108,90 Z" fill="#FFF7E0" stroke="#334155" stroke-width="2.5" stroke-linejoin="round"/>
+  <!-- body -->
+  <ellipse cx="86" cy="116" rx="40" ry="35" fill="#FFF7E0" stroke="#334155" stroke-width="2.5"/>
+  <!-- head -->
+  <circle cx="112" cy="56" r="18" fill="#FFF7E0" stroke="#334155" stroke-width="2.5"/>
+  <!-- beak: pouch, then upper -->
+  <path d="M125,64 L183,58 Q156,94 125,64 Z" fill="#FB923C" stroke="#334155" stroke-width="2" stroke-linejoin="round"/>
+  <path d="M123,46 L183,58 L125,64 Z" fill="#F59E0B" stroke="#334155" stroke-width="2" stroke-linejoin="round"/>
+  <circle cx="116" cy="50" r="2.5" fill="#334155"/>
+  <!-- feet -->
+  <ellipse cx="68" cy="150" rx="9" ry="4" fill="#F59E0B" stroke="#334155" stroke-width="2"/>
+  <ellipse cx="98" cy="150" rx="9" ry="4" fill="#F59E0B" stroke="#334155" stroke-width="2"/>
+  <!-- steam -->
+  <path d="M142,98 Q146,90 142,82" stroke="#94A3B8" stroke-width="3" fill="none" stroke-linecap="round"/>
+  <path d="M152,98 Q156,90 152,82" stroke="#94A3B8" stroke-width="3" fill="none" stroke-linecap="round"/>
+  <!-- cup + handle -->
+  <path d="M136,104 L164,104 L159,136 L141,136 Z" fill="#FFFFFF" stroke="#334155" stroke-width="2.5" stroke-linejoin="round"/>
+  <path d="M164,110 Q177,118 161,128" stroke="#334155" stroke-width="4" fill="none"/>
+  <!-- wing holding the cup -->
+  <path d="M108,112 Q126,104 142,108" stroke="#334155" stroke-width="13" stroke-linecap="round" fill="none"/>
+  <path d="M108,112 Q126,104 142,108" stroke="#FFF7E0" stroke-width="8" stroke-linecap="round" fill="none"/>
+</svg>
